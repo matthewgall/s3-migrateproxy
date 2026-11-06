@@ -166,7 +166,7 @@ CREATE TABLE metadata.migration_tasks (
     owner_id TEXT,
     lease_expires_at TIMESTAMPTZ,
     attempt_count INT NOT NULL DEFAULT 0,
-    last_error TEXT,
+    last_error TEXT NOT NULL DEFAULT '',
     inserted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (migration_id, key, source_version_id)

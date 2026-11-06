@@ -77,7 +77,7 @@ func (t *Transferer) copySingle(ctx context.Context, task *metadata.Task, srcMet
 	if err != nil {
 		return fmt.Errorf("source get failed: %w", err)
 	}
-	defer obj.Body.Close()
+	defer func() { _ = obj.Body.Close() }()
 
 	metadata := obj.Metadata
 	contentType := obj.ContentType

@@ -50,7 +50,7 @@ func TestTransferMultipart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("destination get: %v", err)
 	}
-	defer obj.Body.Close()
+	defer func() { _ = obj.Body.Close() }()
 	got := make([]byte, len(data))
 	if _, err := obj.Body.Read(got); err != nil && !errors.Is(err, io.EOF) {
 		t.Fatalf("read: %v", err)

@@ -32,12 +32,24 @@ func testAuthDBPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+func mustTestMigrationID(ctx context.Context, t *testing.T, pool *pgxpool.Pool) string {
+	var sourceID, destID string
+	_ = pool.QueryRow(ctx, `INSERT INTO metadata.buckets (role, provider, region, bucket) VALUES ('source','generic','us-east-1','s') RETURNING id`).Scan(&sourceID)
+	_ = pool.QueryRow(ctx, `INSERT INTO metadata.buckets (role, provider, region, bucket) VALUES ('destination','generic','us-east-1','d') RETURNING id`).Scan(&destID)
+	var migID string
+	if err := pool.QueryRow(ctx, `INSERT INTO metadata.migrations (name, source_bucket_id, dest_bucket_id) VALUES ($1,$2,$3) RETURNING id`, t.Name(), sourceID, destID).Scan(&migID); err != nil {
+		t.Fatalf("create migration: %v", err)
+	}
+	return migID
+}
+
 func TestHeaderSignature(t *testing.T) {
 	pool := testAuthDBPool(t)
 	defer pool.Close()
 	ctx := context.Background()
+	migID := mustTestMigrationID(ctx, t, pool)
 	store := NewStore(pool, "test-master-key")
-	cred, secret, err := store.Create(ctx, "", "test credential")
+	cred, secret, err := store.Create(ctx, migID, "test credential")
 	if err != nil {
 		t.Fatalf("create credential: %v", err)
 	}
@@ -74,8 +86,9 @@ func TestPresignedURL(t *testing.T) {
 	pool := testAuthDBPool(t)
 	defer pool.Close()
 	ctx := context.Background()
+	migID := mustTestMigrationID(ctx, t, pool)
 	store := NewStore(pool, "test-master-key")
-	cred, secret, err := store.Create(ctx, "", "test credential")
+	cred, secret, err := store.Create(ctx, migID, "test credential")
 	if err != nil {
 		t.Fatalf("create credential: %v", err)
 	}

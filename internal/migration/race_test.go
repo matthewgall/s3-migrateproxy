@@ -63,7 +63,7 @@ func TestWorkerDoesNotOverwriteNewerDestination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer obj.Body.Close()
+	defer func() { _ = obj.Body.Close() }()
 	got, _ := io.ReadAll(obj.Body)
 	if !bytes.Equal(got, v2) {
 		t.Fatalf("destination was overwritten: expected %q, got %q", v2, got)
