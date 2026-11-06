@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: migrate
+      POSTGRES_PASSWORD: migrate
+      POSTGRES_DB: migrateproxy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U migrate -d migrateproxy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  source:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - source_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  destination:
+    image: minio/minio:latest
+    command: server /data --console-address ":9011"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - dest_data:/data
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: /app/gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      source:
+        condition: service_healthy
+      destination:
+        condition: service_healthy
+    environment:
+      S3MIGRATE_MASTER_KEY: ${S3MIGRATE_MASTER_KEY:-changeme}
+      S3MIGRATE_DATABASE_URL: postgres://migrate:migrate@postgres:5432/migrateproxy?sslmode=disable
+      S3MIGRATE_SOURCE_PROVIDER: generic
+      S3MIGRATE_SOURCE_ENDPOINT: http://source:9000
+      S3MIGRATE_SOURCE_REGION: us-east-1
+      S3MIGRATE_SOURCE_BUCKET: sourcebucket
+      S3MIGRATE_SOURCE_ACCESS_KEY_ID: minioadmin
+      S3MIGRATE_SOURCE_SECRET_ACCESS_KEY: minioadmin
+      S3MIGRATE_SOURCE_PATH_STYLE: "true"
+      S3MIGRATE_DEST_PROVIDER: generic
+      S3MIGRATE_DEST_ENDPOINT: http://destination:9000
+      S3MIGRATE_DEST_REGION: us-east-1
+      S3MIGRATE_DEST_BUCKET: destbucket
+      S3MIGRATE_DEST_ACCESS_KEY_ID: minioadmin
+      S3MIGRATE_DEST_SECRET_ACCESS_KEY: minioadmin
+      S3MIGRATE_DEST_PATH_STYLE: "true"
+      S3MIGRATE_ADMIN_API_KEY_HASH: ${S3MIGRATE_ADMIN_API_KEY_HASH:-testkey}
+      S3MIGRATE_WORKER_ENABLE: "false"
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "9090:9090"
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: /app/worker
+    depends_on:
+      - gateway
+    environment:
+      S3MIGRATE_MASTER_KEY: ${S3MIGRATE_MASTER_KEY:-changeme}
+      S3MIGRATE_DATABASE_URL: postgres://migrate:migrate@postgres:5432/migrateproxy?sslmode=disable
+      S3MIGRATE_SOURCE_PROVIDER: generic
+      S3MIGRATE_SOURCE_ENDPOINT: http://source:9000
+      S3MIGRATE_SOURCE_REGION: us-east-1
+      S3MIGRATE_SOURCE_BUCKET: sourcebucket
+      S3MIGRATE_SOURCE_ACCESS_KEY_ID: minioadmin
+      S3MIGRATE_SOURCE_SECRET_ACCESS_KEY: minioadmin
+      S3MIGRATE_SOURCE_PATH_STYLE: "true"
+      S3MIGRATE_DEST_PROVIDER: generic
+      S3MIGRATE_DEST_ENDPOINT: http://destination:9000
+      S3MIGRATE_DEST_REGION: us-east-1
+      S3MIGRATE_DEST_BUCKET: destbucket
+      S3MIGRATE_DEST_ACCESS_KEY_ID: minioadmin
+      S3MIGRATE_DEST_SECRET_ACCESS_KEY: minioadmin
+      S3MIGRATE_DEST_PATH_STYLE: "true"
+      S3MIGRATE_WORKER_ENABLE: "true"
+
+volumes:
+  postgres_data:
+  source_data:
+  dest_data:

@@ -1,0 +1,71 @@
+# Example s3-migrateproxy configuration.
+# All values can be overridden by environment variables with the S3MIGRATE_ prefix
+# and nested keys joined by underscores, e.g. S3MIGRATE_DATABASE_URL.
+# Environment variables referenced with $VAR or ${VAR:-default} are expanded.
+
+migration_name: default
+log_level: info
+
+master_key: ${S3MIGRATE_MASTER_KEY}
+allow_private_endpoints: false
+
+database:
+  url: ${DATABASE_URL}
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 30m
+
+source:
+  provider: generic
+  endpoint: ${SOURCE_ENDPOINT}
+  region: ${SOURCE_REGION:-us-east-1}
+  bucket: ${SOURCE_BUCKET}
+  access_key_id: ${SOURCE_ACCESS_KEY_ID}
+  secret_access_key: ${SOURCE_SECRET_ACCESS_KEY}
+  path_style: false
+  tls_skip_verify: false
+  max_concurrency: 100
+  request_timeout: 30s
+  retry_max_attempts: 3
+
+destination:
+  provider: generic
+  endpoint: ${DEST_ENDPOINT}
+  region: ${DEST_REGION:-us-east-1}
+  bucket: ${DEST_BUCKET}
+  access_key_id: ${DEST_ACCESS_KEY_ID}
+  secret_access_key: ${DEST_SECRET_ACCESS_KEY}
+  path_style: false
+  tls_skip_verify: false
+  max_concurrency: 100
+  request_timeout: 30s
+  retry_max_attempts: 3
+
+gateway:
+  listen_addr: :8080
+  read_header_timeout: 10s
+  read_timeout: 30s
+  write_timeout: 30s
+  max_request_body_bytes: 53687091200
+  streaming_chunk_size: 524288
+  default_max_keys: 1000
+
+admin:
+  listen_addr: :8081
+  read_header_timeout: 10s
+  api_key_hash: ${S3MIGRATE_ADMIN_API_KEY_HASH}
+
+worker:
+  enable: true
+  lease_duration: 60s
+  lease_renew_interval: 30s
+  poll_interval: 5s
+  discovery_page_size: 1000
+  transfer_part_size: 67108864
+  max_concurrent_tasks: 10
+  verify_checksum: true
+
+metrics:
+  enable: true
+  metrics_addr: 0.0.0.0:9090
+  otlp_endpoint: ""

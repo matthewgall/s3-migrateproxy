@@ -1,0 +1,62 @@
+# Binaries and build artifacts
+bin/
+dist/
+/gateway
+/worker
+/migratectl
+/s3-migrateproxy
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Dependency directories
+vendor/
+
+# Environment configuration and secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.crt
+
+# Log files
+*.log
+/logs/
+
+# Temporary and cache directories
+/tmp/
+tmp/
+.cache/
+
+# Coverage reports
+coverage/
+*.cov
+coverage.txt
+coverage.html
+
+# Go workspace files
+go.work
+go.work.sum
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local Docker Compose data volumes
+deploy/postgres_data/
+deploy/source_data/
+deploy/dest_data/
+
+# Local test artifacts
+tests/integration/*.log
+
+# Docs
+docs/
