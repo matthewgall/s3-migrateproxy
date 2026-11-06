@@ -172,9 +172,11 @@ CREATE TABLE metadata.migration_tasks (
     UNIQUE (migration_id, key, source_version_id)
 );
 
+-- Index pending and claimed tasks. Use of NOW() in an index predicate is not
+-- allowed because it is not immutable; the lease expiry is checked at query time.
 CREATE INDEX idx_migration_tasks_claim
-ON metadata.migration_tasks (migration_id, priority, inserted_at, id)
-WHERE state = 'pending' OR (state = 'claimed' AND lease_expires_at < NOW());
+ON metadata.migration_tasks (migration_id, state, priority, inserted_at, id)
+WHERE state = 'pending' OR state = 'claimed';
 
 CREATE INDEX idx_migration_tasks_migration
 ON metadata.migration_tasks (migration_id, state);

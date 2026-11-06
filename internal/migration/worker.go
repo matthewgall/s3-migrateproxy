@@ -64,9 +64,10 @@ func (w *Worker) Start(ctx context.Context, migrationID string) {
 				if err != nil {
 					continue
 				}
-				if mig.State == "LIVE_MIGRATING" || mig.State == "RECONCILING" {
+				switch mig.State {
+				case "LIVE_MIGRATING", "RECONCILING":
 					w.processBatch(ctx, mig.ID)
-				} else if mig.State == "FINALISING" {
+				case "FINALISING":
 					if err := w.drainAndComplete(ctx, mig.ID); err != nil {
 						w.logger.Error("finalisation check failed", "err", err)
 					}
@@ -149,5 +150,3 @@ func (w *Worker) runTask(ctx context.Context, task *metadata.Task) error {
 	}
 	return nil
 }
-
-

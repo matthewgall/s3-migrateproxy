@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -22,12 +23,12 @@ const (
 
 // GatewayCredential is a client credential for the S3 listener.
 type GatewayCredential struct {
-	ID            string
-	AccessKey     string
-	secretRaw     string
-	SecretHash    string
-	Active        bool
-	Revoked       bool
+	ID         string
+	AccessKey  string
+	secretRaw  string
+	SecretHash string
+	Active     bool
+	Revoked    bool
 }
 
 // SecretRaw returns the decrypted raw secret. It must not be logged.
@@ -40,7 +41,9 @@ type Store struct {
 }
 
 // NewStore returns a credential store.
-func NewStore(pool *pgxpool.Pool, masterKey string) *Store { return &Store{pool: pool, masterKey: masterKey} }
+func NewStore(pool *pgxpool.Pool, masterKey string) *Store {
+	return &Store{pool: pool, masterKey: masterKey}
+}
 
 // Lookup returns the credential and decrypted secret for an access key.
 func (s *Store) Lookup(ctx context.Context, accessKey string) (*GatewayCredential, error) {
@@ -135,7 +138,14 @@ func validateSecretHash(hash, candidate string) bool {
 	if err != nil {
 		return false
 	}
-	derived := argon2.IDKey([]byte(candidate), salt, uint32(t), uint32(m), uint8(p), uint32(len(expected)))
+	if m > math.MaxUint32 || t > math.MaxUint32 || p > math.MaxUint8 || len(expected) > math.MaxUint32 {
+		return false
+	}
+	threads := uint32(t)             // #nosec G115 -- bounded by MaxUint32 check
+	memory := uint32(m)              // #nosec G115 -- bounded by MaxUint32 check
+	parallelism := uint8(p)          // #nosec G115 -- bounded by MaxUint8 check
+	hashLen := uint32(len(expected)) // #nosec G115 -- bounded by MaxUint32 check
+	derived := argon2.IDKey([]byte(candidate), salt, threads, memory, parallelism, hashLen)
 	return subtle.ConstantTimeCompare(derived, expected) == 1
 }
 

@@ -3,6 +3,7 @@ package migration
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"testing"
 
@@ -51,8 +52,8 @@ func TestTransferMultipart(t *testing.T) {
 	}
 	defer obj.Body.Close()
 	got := make([]byte, len(data))
-	if _, err := obj.Body.Read(got); err != nil {
-		// Read may return EOF after reading all
+	if _, err := obj.Body.Read(got); err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("read: %v", err)
 	}
 	if !bytes.Equal(got, data) {
 		t.Fatalf("destination data mismatch")

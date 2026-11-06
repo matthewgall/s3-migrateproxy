@@ -59,7 +59,7 @@ func runInTx(ctx context.Context, pool *pgxpool.Pool, sql string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if _, err := tx.Exec(ctx, sql); err != nil {
 		return err
 	}

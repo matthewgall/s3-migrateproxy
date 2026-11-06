@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"strconv"
@@ -23,23 +24,9 @@ import (
 
 // NewAWS builds an AWS SDK v2 S3 Provider for a configured bucket.
 func NewAWS(ctx context.Context, p config.Provider) (Provider, error) {
-	var endpointResolver aws.EndpointResolverWithOptionsFunc
-	if p.Endpoint != "" {
-		endpointResolver = func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-			if service != s3.ServiceID {
-				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-			}
-			return aws.Endpoint{
-				URL:           strings.TrimRight(p.Endpoint, "/"),
-				SigningRegion: p.Region,
-				Source:        aws.EndpointSourceCustom,
-				HostnameImmutable: true,
-			}, nil
-		}
-	}
-
 	rt := http.DefaultTransport.(*http.Transport).Clone()
 	if p.TLSSkipVerify {
+		// #nosec G402 -- TLS verification skipping is an explicit administrator opt-in for private endpoints.
 		rt.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	rt.DialContext = (&net.Dialer{
@@ -54,14 +41,17 @@ func NewAWS(ctx context.Context, p config.Provider) (Provider, error) {
 		awsConfig.WithRegion(p.Region),
 		awsConfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(p.AccessKeyID, p.SecretAccessKey, p.SessionToken)),
 		awsConfig.WithHTTPClient(&http.Client{Transport: rt, Timeout: p.RequestTimeout}),
-		awsConfig.WithEndpointResolverWithOptions(endpointResolver),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("load aws config: %w", err)
 	}
 
+	endpoint := strings.TrimRight(p.Endpoint, "/")
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.UsePathStyle = p.PathStyle
+		if endpoint != "" {
+			o.BaseEndpoint = aws.String(endpoint)
+		}
 	})
 
 	return &awsProvider{
@@ -126,8 +116,8 @@ type awsProvider struct {
 	caps     Capabilities
 }
 
-func (a *awsProvider) Name() string        { return string(a.name) }
-func (a *awsProvider) Bucket() string      { return a.bucket }
+func (a *awsProvider) Name() string               { return string(a.name) }
+func (a *awsProvider) Bucket() string             { return a.bucket }
 func (a *awsProvider) Capabilities() Capabilities { return a.caps }
 
 func (a *awsProvider) GetObject(ctx context.Context, key, versionID, rangeHeader string) (*ObjectInfo, error) {
@@ -146,15 +136,15 @@ func (a *awsProvider) GetObject(ctx context.Context, key, versionID, rangeHeader
 		return nil, translateError(err)
 	}
 	return &ObjectInfo{
-		Key:          key,
-		VersionID:    aws.ToString(out.VersionId),
-		Size:         aws.ToInt64(out.ContentLength),
-		ETag:         aws.ToString(out.ETag),
-		ContentType:  aws.ToString(out.ContentType),
-		ContentRange: aws.ToString(out.ContentRange),
-		LastModified: aws.ToTime(out.LastModified),
-		Metadata:     out.Metadata,
-		Body:         out.Body,
+		Key:            key,
+		VersionID:      aws.ToString(out.VersionId),
+		Size:           aws.ToInt64(out.ContentLength),
+		ETag:           aws.ToString(out.ETag),
+		ContentType:    aws.ToString(out.ContentType),
+		ContentRange:   aws.ToString(out.ContentRange),
+		LastModified:   aws.ToTime(out.LastModified),
+		Metadata:       out.Metadata,
+		Body:           out.Body,
 		ChecksumSHA256: aws.ToString(out.ChecksumSHA256),
 	}, nil
 }
@@ -177,7 +167,7 @@ func (a *awsProvider) HeadObject(ctx context.Context, key, versionID string) (*O
 		Size:           aws.ToInt64(out.ContentLength),
 		ETag:           aws.ToString(out.ETag),
 		ContentType:    aws.ToString(out.ContentType),
-		LastModified:     aws.ToTime(out.LastModified),
+		LastModified:   aws.ToTime(out.LastModified),
 		Metadata:       out.Metadata,
 		ChecksumSHA256: aws.ToString(out.ChecksumSHA256),
 	}, nil
@@ -198,11 +188,9 @@ func (a *awsProvider) PutObject(ctx context.Context, key string, body io.Reader,
 	if opts.IfNoneMatch != "" {
 		input.IfNoneMatch = aws.String(opts.IfNoneMatch)
 	}
-	if opts.ChecksumSHA256 != "" {
-		// SDK expects base64 of raw checksum, but our metadata store keeps hex.
-		// We leave checksum fields unset here; instead the caller computes and
-		// verifies independently. Provider checksums can be enabled via middleware if needed.
-	}
+	// A non-empty opts.ChecksumSHA256 is intentionally not forwarded: the SDK
+	// expects base64-encoded raw checksums while the metadata store keeps hex.
+	// Caller-side checksum verification is used instead.
 	out, err := a.client.PutObject(ctx, input)
 	if err != nil {
 		return nil, translateError(err)
@@ -243,11 +231,11 @@ func (a *awsProvider) ListObjectsV2(ctx context.Context, opts ListOptions) (*Lis
 
 func (a *awsProvider) ListObjectVersions(ctx context.Context, opts ListOptions) (*ListResult, error) {
 	input := &s3.ListObjectVersionsInput{
-		Bucket:          aws.String(a.bucket),
-		Prefix:          aws.String(opts.Prefix),
-		Delimiter:       aws.String(opts.Delimiter),
-		MaxKeys:         aws.Int32(opts.MaxKeys),
-		KeyMarker:       aws.String(opts.ContinuationToken),
+		Bucket:    aws.String(a.bucket),
+		Prefix:    aws.String(opts.Prefix),
+		Delimiter: aws.String(opts.Delimiter),
+		MaxKeys:   aws.Int32(opts.MaxKeys),
+		KeyMarker: aws.String(opts.ContinuationToken),
 	}
 	out, err := a.client.ListObjectVersions(ctx, input)
 	if err != nil {
@@ -294,10 +282,14 @@ func (a *awsProvider) CreateMultipartUpload(ctx context.Context, key string, opt
 }
 
 func (a *awsProvider) UploadPart(ctx context.Context, uploadID string, partNumber int, body io.Reader, size int64) (string, error) {
+	if partNumber < 1 || partNumber > math.MaxInt32 {
+		return "", fmt.Errorf("invalid part number: %d", partNumber)
+	}
 	input := &s3.UploadPartInput{
-		Bucket:     aws.String(a.bucket),
-		Key:        aws.String(uploadID), // placeholder, actual key managed at higher layer if needed
-		UploadId:   aws.String(uploadID),
+		Bucket:   aws.String(a.bucket),
+		Key:      aws.String(uploadID), // placeholder, actual key managed at higher layer if needed
+		UploadId: aws.String(uploadID),
+		// #nosec G115 -- partNumber bounded by MaxInt32 check above
 		PartNumber: aws.Int32(int32(partNumber)),
 		Body:       body,
 	}
@@ -351,7 +343,7 @@ func (a *awsProvider) ListParts(ctx context.Context, uploadID, key string, maxPa
 		MaxParts: aws.Int32(maxParts),
 	}
 	if partNumberMarker > 0 {
-		input.PartNumberMarker = aws.String(strconv.Itoa(int(partNumberMarker)))
+		input.PartNumberMarker = aws.String(strconv.FormatInt(int64(partNumberMarker), 10))
 	}
 	out, err := a.client.ListParts(ctx, input)
 	if err != nil {
@@ -361,8 +353,8 @@ func (a *awsProvider) ListParts(ctx context.Context, uploadID, key string, maxPa
 		IsTruncated: aws.ToBool(out.IsTruncated),
 	}
 	if out.NextPartNumberMarker != nil {
-		if n, err := strconv.Atoi(aws.ToString(out.NextPartNumberMarker)); err == nil {
-			res.NextPartNumberMarker = int32(n)
+		if n, err := strconv.ParseInt(aws.ToString(out.NextPartNumberMarker), 10, 32); err == nil {
+			res.NextPartNumberMarker = int32(n) // #nosec G115 -- ParseInt bitSize=32 guarantees fit
 		}
 	}
 	for _, p := range out.Parts {
@@ -374,7 +366,6 @@ func (a *awsProvider) ListParts(ctx context.Context, uploadID, key string, maxPa
 	}
 	return res, nil
 }
-
 
 func (a *awsProvider) ListMultipartUploads(ctx context.Context, opts ListOptions) ([]MultipartUploadInfo, error) {
 	out, err := a.client.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{

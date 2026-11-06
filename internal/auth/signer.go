@@ -140,9 +140,8 @@ func (v *Validator) authenticatePresigned(ctx context.Context, cfg *config.Confi
 		payloadHash = "UNSIGNED-PAYLOAD"
 	}
 	if r.Method == "GET" || r.Method == "HEAD" || r.Method == "DELETE" {
-		if payloadHash == "UNSIGNED-PAYLOAD" {
-			// ok
-		}
+		// Unsigned payload is allowed for read/delete operations.
+		_ = payloadHash
 	}
 
 	creds := aws.Credentials{AccessKeyID: accessKey, SecretAccessKey: cred.SecretRaw()}
@@ -243,5 +242,3 @@ func payloadHashFor(r *http.Request) string {
 	}
 	return "UNSIGNED-PAYLOAD"
 }
-
-

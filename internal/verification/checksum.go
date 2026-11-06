@@ -11,13 +11,13 @@ import (
 
 // Result holds verification outcome.
 type Result struct {
-	OK       bool
-	MatchSize bool
-	MatchETag bool
-	MatchSHA256 bool
+	OK           bool
+	MatchSize    bool
+	MatchETag    bool
+	MatchSHA256  bool
 	SourceSHA256 string
 	DestSHA256   string
-	Message  string
+	Message      string
 }
 
 // Compare compares source and destination object attributes.

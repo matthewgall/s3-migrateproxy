@@ -403,4 +403,3 @@ func (c *Config) String() string {
 		c.LogLevel,
 	)
 }
-

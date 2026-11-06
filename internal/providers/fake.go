@@ -41,8 +41,8 @@ func NewFakeProvider(name string) *FakeProvider {
 	}
 }
 
-func (f *FakeProvider) Name() string          { return f.name }
-func (f *FakeProvider) Bucket() string          { return "bucket" }
+func (f *FakeProvider) Name() string   { return f.name }
+func (f *FakeProvider) Bucket() string { return "bucket" }
 func (f *FakeProvider) Capabilities() Capabilities {
 	return Capabilities{MultipartUploads: true}
 }
@@ -120,7 +120,7 @@ func (f *FakeProvider) HeadObject(ctx context.Context, key, versionID string) (*
 	if err != nil {
 		return nil, err
 	}
-	obj.Body.Close()
+	_ = obj.Body.Close()
 	return obj, nil
 }
 
@@ -206,7 +206,7 @@ func (f *FakeProvider) CopyObject(ctx context.Context, dstKey string, opts CopyO
 	if err != nil {
 		return nil, err
 	}
-	defer src.Body.Close()
+	defer func() { _ = src.Body.Close() }()
 	data, _ := io.ReadAll(src.Body)
 	f.mu.Lock()
 	defer f.mu.Unlock()

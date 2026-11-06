@@ -3,7 +3,9 @@ package gateway
 import (
 	"database/sql"
 	"encoding/xml"
+	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 
@@ -60,9 +62,14 @@ func (s *Server) handleCompleteMultipartUpload(w http.ResponseWriter, r *http.Re
 
 	parts := make([]providers.PartInfo, 0, len(reqParts))
 	for _, rp := range reqParts {
+		if rp.PartNumber < 1 || rp.PartNumber > math.MaxInt32 {
+			s.writeError(w, r, "InvalidPart", fmt.Sprintf("invalid part number: %d", rp.PartNumber), http.StatusBadRequest)
+			return
+		}
 		var found *metastore.PartInfo
+		rpPartNum := int32(rp.PartNumber) // #nosec G115 -- rp.PartNumber bounded by MaxInt32
 		for i := range recordedParts {
-			if recordedParts[i].PartNumber == int32(rp.PartNumber) {
+			if recordedParts[i].PartNumber == rpPartNum {
 				found = &recordedParts[i]
 				break
 			}
@@ -144,7 +151,7 @@ func (s *Server) handleListMultipartUploads(w http.ResponseWriter, r *http.Reque
 }
 
 type completeMultipartUploadXML struct {
-	XMLName xml.Name `xml:"CompleteMultipartUpload"`
+	XMLName xml.Name  `xml:"CompleteMultipartUpload"`
 	Parts   []partXML `xml:"Part"`
 }
 

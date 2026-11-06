@@ -2,9 +2,10 @@ package retry
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"github.com/aws/smithy-go"
@@ -12,21 +13,21 @@ import (
 
 // Config controls retry behaviour.
 type Config struct {
-	MaxAttempts  int
-	BaseDelay  time.Duration
-	MaxDelay   time.Duration
-	Multiplier float64
-	Jitter     float64
+	MaxAttempts int
+	BaseDelay   time.Duration
+	MaxDelay    time.Duration
+	Multiplier  float64
+	Jitter      float64
 }
 
 // Default returns a sensible default retry config.
 func Default() Config {
 	return Config{
-		MaxAttempts:  5,
-		BaseDelay:  500 * time.Millisecond,
-		MaxDelay:   30 * time.Second,
-		Multiplier: 2.0,
-		Jitter:     0.2,
+		MaxAttempts: 5,
+		BaseDelay:   500 * time.Millisecond,
+		MaxDelay:    30 * time.Second,
+		Multiplier:  2.0,
+		Jitter:      0.2,
 	}
 }
 
@@ -64,11 +65,19 @@ func backoff(cfg Config, attempt int) time.Duration {
 	if d > float64(cfg.MaxDelay) {
 		d = float64(cfg.MaxDelay)
 	}
-	j := 1.0 + (rand.Float64()*2-1.0)*cfg.Jitter
+	j := 1.0 + (secureRandFloat()*2-1.0)*cfg.Jitter
 	if j < 0 {
 		j = 0
 	}
 	return time.Duration(d * j)
+}
+
+func secureRandFloat() float64 {
+	n, err := rand.Int(rand.Reader, big.NewInt(1<<53))
+	if err != nil {
+		return 0.5
+	}
+	return float64(n.Int64()) / (1 << 53)
 }
 
 // IsNotFound returns true for authoritative object-not-found errors.

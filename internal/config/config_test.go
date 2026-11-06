@@ -125,5 +125,3 @@ func envSnapshot(includePrefix bool) map[string]string {
 	}
 	return out
 }
-
-

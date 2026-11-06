@@ -7,6 +7,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,8 +17,6 @@ import (
 	"github.com/matthewgall/s3-migrateproxy/internal/metrics"
 	"github.com/matthewgall/s3-migrateproxy/internal/providers"
 )
-
-const maxInMemory = 32 << 20 // 32 MiB threshold for small objects; larger use multipart
 
 func (s *Server) handleGetObject(w http.ResponseWriter, r *http.Request, migrationID, key string) {
 	rangeHdr := r.Header.Get("Range")
@@ -214,11 +213,12 @@ func (s *Server) handlePutObject(w http.ResponseWriter, r *http.Request, migrati
 func (s *Server) handleUploadPart(w http.ResponseWriter, r *http.Request, migrationID, key, uploadID string) {
 	ctx := r.Context()
 	partNumStr := r.URL.Query().Get("partNumber")
-	partNum, err := strconv.Atoi(partNumStr)
-	if err != nil || partNum < 1 {
+	n, err := strconv.ParseInt(partNumStr, 10, 32)
+	if err != nil || n < 1 || n > math.MaxInt32 {
 		s.writeError(w, r, "InvalidArgument", "invalid partNumber", http.StatusBadRequest)
 		return
 	}
+	partNum := int(n)
 
 	destUploadID, _, _, err := s.store.GetMultipartRecord(ctx, migrationID, uploadID)
 	if err != nil {
@@ -231,7 +231,11 @@ func (s *Server) handleUploadPart(w http.ResponseWriter, r *http.Request, migrat
 		s.writeError(w, r, "InternalError", "upload part failed", http.StatusInternalServerError)
 		return
 	}
-	_ = s.store.RecordPart(ctx, migrationID, uploadID, int32(partNum), etag, r.ContentLength)
+	if err := s.store.RecordPart(ctx, migrationID, uploadID,
+		int32(partNum), etag, r.ContentLength); err != nil { // #nosec G115 -- validated against MaxInt32
+		s.writeError(w, r, "InternalError", "failed to record part", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("ETag", etag)
 	w.WriteHeader(http.StatusOK)
 }
@@ -272,9 +276,9 @@ func (s *Server) handleDeleteObjects(w http.ResponseWriter, r *http.Request, mig
 }
 
 type deleteObjectsXML struct {
-	XMLName xml.Name `xml:"Delete"`
+	XMLName xml.Name          `xml:"Delete"`
 	Objects []deleteObjectXML `xml:"Object"`
-	Quiet   bool             `xml:"Quiet"`
+	Quiet   bool              `xml:"Quiet"`
 }
 
 type deleteObjectXML struct {

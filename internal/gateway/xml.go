@@ -121,10 +121,10 @@ func xmlPutResult(etag string) string {
 		`<PutObjectResult><ETag>` + xmlEscape(etag) + `</ETag></PutObjectResult>`
 }
 
-func xmlDeleteResult() string { return "" }
-
 func setXML(w http.ResponseWriter, status int, body string) {
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(status)
+	// All XML bodies are constructed from pre-escaped helper functions (xmlEscape).
+	// #nosec G705
 	_, _ = w.Write([]byte(body))
 }

@@ -53,7 +53,7 @@ func (s *Server) handleCopyObject(w http.ResponseWriter, r *http.Request, migrat
 			s.writeError(w, r, "InternalError", "source fetch failed", http.StatusInternalServerError)
 			return
 		}
-		defer srcObj.Body.Close()
+		defer func() { _ = srcObj.Body.Close() }()
 		if contentType == "" {
 			contentType = srcObj.ContentType
 		}

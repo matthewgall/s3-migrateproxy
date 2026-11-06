@@ -63,7 +63,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	}
 	go func() {
 		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(shutdownCtx)
 	}()
@@ -227,16 +227,16 @@ func (s *Server) report(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{
-		"state":              mig.State,
-		"total_objects":      rep.TotalObjects,
-		"migrated_objects":   rep.MigratedObjects,
-		"verified_objects":   rep.VerifiedObjects,
-		"failed_objects":     rep.FailedObjects,
-		"skipped_objects":    rep.SkippedObjects,
-		"tombstone_objects":  rep.TombstoneObjects,
-		"queue_depth":        rep.QueueDepth,
-		"can_finalise":       rep.CanFinalise,
-		"discrepancies":      rep.DiscrepancyKeys,
+		"state":             mig.State,
+		"total_objects":     rep.TotalObjects,
+		"migrated_objects":  rep.MigratedObjects,
+		"verified_objects":  rep.VerifiedObjects,
+		"failed_objects":    rep.FailedObjects,
+		"skipped_objects":   rep.SkippedObjects,
+		"tombstone_objects": rep.TombstoneObjects,
+		"queue_depth":       rep.QueueDepth,
+		"can_finalise":      rep.CanFinalise,
+		"discrepancies":     rep.DiscrepancyKeys,
 	})
 }
 

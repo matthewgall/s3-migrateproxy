@@ -19,7 +19,7 @@ func TestFakeProviderRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	defer obj.Body.Close()
+	defer func() { _ = obj.Body.Close() }()
 	got, _ := io.ReadAll(obj.Body)
 	if !bytes.Equal(got, data) {
 		t.Fatalf("data mismatch")
@@ -65,7 +65,7 @@ func TestFakeProviderRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get range: %v", err)
 	}
-	defer obj.Body.Close()
+	defer func() { _ = obj.Body.Close() }()
 	got, _ := io.ReadAll(obj.Body)
 	if !bytes.Equal(got, []byte("2345")) {
 		t.Fatalf("range mismatch: %q", got)

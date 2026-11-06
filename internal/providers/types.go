@@ -9,7 +9,7 @@ import (
 // Capabilities describes what a provider natively supports.
 type Capabilities struct {
 	NativeConditionalWrites bool
-	MultipartUploads      bool
+	MultipartUploads        bool
 	SupportsVersions        bool
 	StrongChecksums         bool // e.g., SHA-256 object attributes
 	ETagIsMD5               bool
@@ -31,12 +31,12 @@ type ObjectInfo struct {
 
 // PutOptions for writes.
 type PutOptions struct {
-	ContentType      string
-	ContentLength    int64
-	Metadata         map[string]string
-	IfMatch          string
-	IfNoneMatch      string
-	ChecksumSHA256   string // hex
+	ContentType    string
+	ContentLength  int64
+	Metadata       map[string]string
+	IfMatch        string
+	IfNoneMatch    string
+	ChecksumSHA256 string // hex
 }
 
 // PutResult contains the result of a successful write.
@@ -64,26 +64,26 @@ type ListResult struct {
 
 // ListedObject is a single item in a listing.
 type ListedObject struct {
-	Key          string
-	Size         int64
-	ETag         string
-	LastModified time.Time
-	VersionID    string
-	IsLatest     bool
+	Key            string
+	Size           int64
+	ETag           string
+	LastModified   time.Time
+	VersionID      string
+	IsLatest       bool
 	IsDeleteMarker bool
 }
 
 // CopyOptions for CopyObject.
 type CopyOptions struct {
-	SourceKey          string
-	SourceVersionID    string
-	MetadataDirective  string // COPY | REPLACE
-	ContentType        string
-	Metadata           map[string]string
-	IfMatch            string
-	IfNoneMatch        string
-	IfModifiedSince    time.Time
-	IfUnmodifiedSince  time.Time
+	SourceKey         string
+	SourceVersionID   string
+	MetadataDirective string // COPY | REPLACE
+	ContentType       string
+	Metadata          map[string]string
+	IfMatch           string
+	IfNoneMatch       string
+	IfModifiedSince   time.Time
+	IfUnmodifiedSince time.Time
 }
 
 // PartInfo for multipart uploads.
@@ -124,7 +124,7 @@ type Provider interface {
 
 // ListPartsResult is the result of ListParts.
 type ListPartsResult struct {
-	Parts            []PartInfo
-	IsTruncated      bool
+	Parts                []PartInfo
+	IsTruncated          bool
 	NextPartNumberMarker int32
 }

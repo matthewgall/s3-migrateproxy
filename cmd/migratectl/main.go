@@ -99,7 +99,7 @@ func call(method, path string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if _, err := io.Copy(os.Stdout, resp.Body); err != nil {
 		return err
 	}

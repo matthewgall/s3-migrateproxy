@@ -422,16 +422,16 @@ func (s *Store) GenerateReport(ctx context.Context, migrationID string) (*Report
 	}
 	discJSON, _ := json.Marshal(discrepancies)
 	rep := &Report{
-		MigrationID:       migrationID,
-		TotalObjects:      stats.TotalObjects,
-		MigratedObjects:   stats.MigratedObjects,
-		VerifiedObjects:   stats.VerifiedObjects,
-		FailedObjects:     stats.FailedObjects,
-		SkippedObjects:    stats.SkippedObjects,
-		TombstoneObjects:  stats.TombstoneObjects,
-		QueueDepth:        stats.QueueDepth,
-		DiscrepancyKeys:   discrepancies,
-		CanFinalise:       len(discrepancies) == 0 && stats.QueueDepth == 0,
+		MigrationID:      migrationID,
+		TotalObjects:     stats.TotalObjects,
+		MigratedObjects:  stats.MigratedObjects,
+		VerifiedObjects:  stats.VerifiedObjects,
+		FailedObjects:    stats.FailedObjects,
+		SkippedObjects:   stats.SkippedObjects,
+		TombstoneObjects: stats.TombstoneObjects,
+		QueueDepth:       stats.QueueDepth,
+		DiscrepancyKeys:  discrepancies,
+		CanFinalise:      len(discrepancies) == 0 && stats.QueueDepth == 0,
 	}
 	_, err = s.pool.Exec(ctx, `
 		INSERT INTO metadata.migration_reports
@@ -544,7 +544,9 @@ func (s *Store) GetMultipartRecord(ctx context.Context, migrationID, uploadID st
 		}
 		parts = append(parts, p)
 	}
-	rows.Err()
+	if err := rows.Err(); err != nil {
+		return "", "", nil, err
+	}
 	return
 }
 
@@ -591,7 +593,7 @@ func formatContinuationToken(key string) string {
 	return base64Encode([]byte(key))
 }
 
-func base64Encode(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
+func base64Encode(b []byte) string          { return base64.RawURLEncoding.EncodeToString(b) }
 func base64Decode(s string) ([]byte, error) { return base64.RawURLEncoding.DecodeString(s) }
 
 func timeNow() time.Time { return time.Now() }
