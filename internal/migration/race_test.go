@@ -39,6 +39,7 @@ func TestWorkerDoesNotOverwriteNewerDestination(t *testing.T) {
 	// Record that newer destination state.
 	if err := store.UpsertObjectState(ctx, migID, "race.txt", 1, func(o *metadata.ObjectState) error {
 		o.DestETag = `"new"`
+		o.DestVersionID = "v-new"
 		o.MigrationState = "migrated"
 		o.DestModifiedAt = sql.NullTime{Time: time.Now(), Valid: true}
 		return nil

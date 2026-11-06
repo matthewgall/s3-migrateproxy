@@ -87,7 +87,7 @@ func copyObjectToResponse(w http.ResponseWriter, r *http.Request, obj *providers
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
-	defer obj.Body.Close()
+	defer func() { _ = obj.Body.Close() }()
 	_, _ = io.Copy(w, obj.Body)
 }
 

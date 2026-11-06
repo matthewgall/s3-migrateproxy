@@ -99,7 +99,7 @@ func TestTransferSingle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer obj.Body.Close()
+	defer func() { _ = obj.Body.Close() }()
 	got, _ := io.ReadAll(obj.Body)
 	if !bytes.Equal(got, data) {
 		t.Fatal("data mismatch")
