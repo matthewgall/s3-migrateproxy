@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -95,7 +96,7 @@ func call(method, path string) error {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+key)
-	resp, err := (&http.Client{}).Do(req)
+	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
 		return err
 	}

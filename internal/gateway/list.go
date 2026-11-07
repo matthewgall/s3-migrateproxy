@@ -25,7 +25,8 @@ func (s *Server) handleListObjectsV2(w http.ResponseWriter, r *http.Request, mig
 	result, err := s.store.ListObjectsV2(ctx, migrationID, prefix, delimiter,
 		int32(maxKeys), continuationToken) // #nosec G115 -- maxKeys clamped to <= 1000
 	if err != nil {
-		s.writeError(w, r, "InternalError", err.Error(), http.StatusInternalServerError)
+		s.logger.Error("list objects failed", "err", err)
+		s.writeError(w, r, "InternalError", "list objects failed", http.StatusInternalServerError)
 		return
 	}
 	metrics.ProviderReads.WithLabelValues("destination").Inc()
