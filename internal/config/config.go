@@ -128,7 +128,7 @@ func BindFlags(cmd *cobra.Command) {
 	register(cmd, "gateway-streaming-chunk-size", "gateway.streaming_chunk_size", 512<<10, "gateway streaming chunk size")
 	register(cmd, "gateway-default-max-keys", "gateway.default_max_keys", int32(1000), "default ListObjectsV2 max keys")
 
-	register(cmd, "admin-listen-addr", "admin.listen_addr", ":8081", "admin API listener address")
+	register(cmd, "admin-listen-addr", "admin.listen_addr", "127.0.0.1:8081", "admin API listener address")
 	register(cmd, "admin-read-header-timeout", "admin.read_header_timeout", 10*time.Second, "admin read header timeout")
 	register(cmd, "admin-api-key-hash", "admin.api_key_hash", "", "admin API bearer token")
 
@@ -295,7 +295,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("gateway.streaming_chunk_size", 512<<10)
 	v.SetDefault("gateway.default_max_keys", 1000)
 
-	v.SetDefault("admin.listen_addr", ":8081")
+	v.SetDefault("admin.listen_addr", "127.0.0.1:8081")
 	v.SetDefault("admin.read_header_timeout", 10*time.Second)
 
 	v.SetDefault("worker.enable", true)
@@ -384,7 +384,7 @@ func (c *Config) Redacted() map[string]any {
 func redact(m map[string]any) {
 	for k, v := range m {
 		lower := strings.ToLower(k)
-		if strings.Contains(lower, "secret") || strings.Contains(lower, "key") || strings.Contains(lower, "password") || strings.Contains(lower, "token") {
+		if strings.Contains(lower, "secret") || strings.Contains(lower, "key") || strings.Contains(lower, "password") || strings.Contains(lower, "token") || strings.Contains(lower, "url") || strings.Contains(lower, "dsn") {
 			if _, ok := v.(string); ok {
 				m[k] = "[redacted]"
 			}

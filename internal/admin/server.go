@@ -60,6 +60,10 @@ func (s *Server) Serve(ctx context.Context) error {
 		Addr:              s.cfg.Admin.ListenAddr,
 		Handler:           mux,
 		ReadHeaderTimeout: s.cfg.Admin.ReadHeaderTimeout,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 	go func() {
 		<-ctx.Done()
